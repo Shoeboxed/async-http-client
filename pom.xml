@@ -9,7 +9,7 @@
     <groupId>com.ning</groupId>
     <artifactId>async-http-client</artifactId>
     <name>Asynchronous Http Client</name>
-    <version>1.7.24</version>
+    <version>1.7.24-snifix</version>
     <packaging>jar</packaging>
     <description>
         Async Http Client library purpose is to allow Java applications to easily execute HTTP requests and
@@ -257,13 +257,13 @@
                 <configuration>
                     <signature>
                         <groupId>org.codehaus.mojo.signature</groupId>
-                        <artifactId>java15</artifactId>
+                        <artifactId>java18</artifactId>
                         <version>1.0</version>
                     </signature>
                 </configuration>
                 <executions>
                     <execution>
-                        <id>check-java-1.5-compat</id>
+                        <id>check-java-1.8-compat</id>
                         <phase>process-classes</phase>
                         <goals>
                             <goal>check</goal>
@@ -483,7 +483,7 @@
                 <compiler.exclude>asdfasfd/**</compiler.exclude>
                 <test.compiler.exclude>asdfasdf/**</test.compiler.exclude>
                 <javadoc.package.exclude>asdfasdf</javadoc.package.exclude>
-                <target.property>1.5</target.property>
+                <target.property>1.8</target.property>
             </properties>
             <dependencies>
                 <dependency>
@@ -591,9 +591,8 @@
         <compiler.exclude>com/ning/http/client/providers/grizzly/*.java</compiler.exclude>
         <test.compiler.exclude>com/ning/http/client/async/grizzly/*.java</test.compiler.exclude>
         <javadoc.package.exclude>com.ning.http.client.providers.grizzly</javadoc.package.exclude>
-        <source.property>1.5</source.property>
-        <target.property>1.5</target.property>
+        <source.property>1.8</source.property>
+        <target.property>1.8</target.property>
         <surefire.version>2.12</surefire.version>
     </properties>
 </project>
-

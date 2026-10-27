@@ -400,7 +400,7 @@ public class NettyAsyncHttpProvider extends SimpleChannelUpstreamHandler impleme
         }
     }
 
-    private Channel lookupInCache(URI uri, ConnectionPoolKeyStrategy connectionPoolKeyStrategy) {
+    private Channel lookupInCache(URI uri, URI targetUri, ConnectionPoolKeyStrategy connectionPoolKeyStrategy) {
         final Channel channel = connectionsPool.poll(connectionPoolKeyStrategy.getKey(uri));
 
         if (channel != null) {
@@ -410,7 +410,7 @@ public class NettyAsyncHttpProvider extends SimpleChannelUpstreamHandler impleme
                 // Always make sure the channel who got cached support the proper protocol. It could
                 // only occurs when a HttpMethod.CONNECT is used against a proxy that require upgrading from http to
                 // https.
-                return verifyChannelPipeline(channel, uri.getScheme());
+                return verifyChannelPipeline(channel, targetUri);
             } catch (Exception ex) {
                 log.debug(ex.getMessage(), ex);
             }
@@ -434,14 +434,17 @@ public class NettyAsyncHttpProvider extends SimpleChannelUpstreamHandler impleme
         return new HttpClientCodec(httpsClientCodecMaxInitialLineLength, httpsClientCodecMaxHeaderSize, httpsClientCodecMaxChunkSize);
     }
 
-    private Channel verifyChannelPipeline(Channel channel, String scheme) throws IOException, GeneralSecurityException {
+    private Channel verifyChannelPipeline(Channel channel, URI uri) throws IOException, GeneralSecurityException {
+        String scheme = uri.getScheme();
 
         if (channel.getPipeline().get(SSL_HANDLER) != null && HTTP.equalsIgnoreCase(scheme)) {
             channel.getPipeline().remove(SSL_HANDLER);
         } else if (channel.getPipeline().get(HTTP_HANDLER) != null && HTTP.equalsIgnoreCase(scheme)) {
             return channel;
         } else if (channel.getPipeline().get(SSL_HANDLER) == null && isSecure(scheme)) {
-            channel.getPipeline().addFirst(SSL_HANDLER, new SslHandler(createSSLEngine()));
+            SSLEngine engine = createSSLEngine();
+            SniSupport.configure(engine, uri);
+            channel.getPipeline().addFirst(SSL_HANDLER, new SslHandler(engine));
         }
         return channel;
     }
@@ -931,7 +934,7 @@ public class NettyAsyncHttpProvider extends SimpleChannelUpstreamHandler impleme
                 channel = f.channel();
             } else {
                 URI connectionKeyUri = useProxy ? proxyServer.getURI() : uri;
-                channel = lookupInCache(connectionKeyUri, request.getConnectionPoolKeyStrategy());
+                channel = lookupInCache(connectionKeyUri, uri, request.getConnectionPoolKeyStrategy());
             }
         }
 
@@ -1344,15 +1347,17 @@ public class NettyAsyncHttpProvider extends SimpleChannelUpstreamHandler impleme
         future.abort(t);
     }
 
-    private void upgradeProtocol(ChannelPipeline p, String scheme) throws IOException, GeneralSecurityException {
+    private void upgradeProtocol(ChannelPipeline p, URI uri) throws IOException, GeneralSecurityException {
         if (p.get(HTTP_HANDLER) != null) {
             p.remove(HTTP_HANDLER);
         }
 
-        if (isSecure(scheme)) {
+        if (isSecure(uri.getScheme())) {
             if (p.get(SSL_HANDLER) == null) {
                 p.addFirst(HTTP_HANDLER, createHttpClientCodec());
-                p.addFirst(SSL_HANDLER, new SslHandler(createSSLEngine()));
+                SSLEngine engine = createSSLEngine();
+                SniSupport.configure(engine, uri);
+                p.addFirst(SSL_HANDLER, new SslHandler(engine));
             } else {
                 p.addAfter(SSL_HANDLER, HTTP_HANDLER, createHttpClientCodec());
             }
@@ -2184,7 +2189,7 @@ public class NettyAsyncHttpProvider extends SimpleChannelUpstreamHandler impleme
 
                         try {
                             log.debug("Connecting to proxy {} for scheme {}", proxyServer, request.getUrl());
-                            upgradeProtocol(ctx.getChannel().getPipeline(), request.getURI().getScheme());
+                            upgradeProtocol(ctx.getChannel().getPipeline(), request.getURI());
                         } catch (Throwable ex) {
                             abort(future, ex);
                         }
