@@ -68,6 +68,7 @@ final class NettyConnectListener<T> implements ChannelFutureListener {
             channel.getPipeline().getContext(NettyAsyncHttpProvider.class).setAttachment(future);
             SslHandler sslHandler = (SslHandler) channel.getPipeline().get(NettyAsyncHttpProvider.SSL_HANDLER);
             if (!handshakeDone.getAndSet(true) && (sslHandler != null)) {
+                SniSupport.configure(sslHandler.getEngine(), future.getRequest().getURI());
                 ((SslHandler) channel.getPipeline().get(NettyAsyncHttpProvider.SSL_HANDLER)).handshake().addListener(this);
                 return;
             }
